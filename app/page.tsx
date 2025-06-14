@@ -2,8 +2,25 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
+// Define the Trade interface
+interface Trade {
+  id: number;
+  symbol: string;
+  option_type: 'PUT' | 'CALL';
+  strike_price: number;
+  expiration_date: string;
+  premium: number;
+  contracts: number;
+  action: 'SELL' | 'BUY';
+  status: 'OPEN' | 'CLOSED' | 'EXPIRED' | 'ASSIGNED';
+  fees: number;
+  apr: number | null;
+  date_closed: string | null;
+  created_at: string;
+}
+
 export default function OptionsTracker() {
-  const [trades, setTrades] = useState([])
+  const [trades, setTrades] = useState<Trade[]>([]) // Fixed: properly typed
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   
@@ -51,10 +68,10 @@ export default function OptionsTracker() {
       let apr = null
       if (formData.status === 'CLOSED' && formData.date_closed) {
         const capitalRequired = parseFloat(formData.strike_price) * parseInt(formData.contracts) * 100
-        const netPremium = parseFloat(formData.premium) - parseFloat(formData.fees || 0)
+        const netPremium = parseFloat(formData.premium) - parseFloat(formData.fees || '0')
         const createdDate = new Date()
         const closedDate = new Date(formData.date_closed)
-        const daysHeld = Math.max(1, Math.ceil((closedDate - createdDate) / (1000 * 60 * 60 * 24)))
+        const daysHeld = Math.max(1, Math.ceil((closedDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)))
         
         apr = ((netPremium / capitalRequired) * (365 / daysHeld) * 100).toFixed(2)
       }
@@ -107,32 +124,32 @@ export default function OptionsTracker() {
       })
       setShowForm(false)
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Unexpected error:', error)
       alert(`Unexpected error: ${error.message}`)
     }
   }
 
-  function calculateAPR(trade) {
+  function calculateAPR(trade: Trade) {
     if (trade.status !== 'CLOSED' || !trade.date_closed) return null
     
     const capitalRequired = trade.strike_price * trade.contracts * 100
     const netPremium = trade.premium - (trade.fees || 0)
     const createdDate = new Date(trade.created_at)
     const closedDate = new Date(trade.date_closed)
-    const daysHeld = Math.max(1, Math.ceil((closedDate - createdDate) / (1000 * 60 * 60 * 24)))
+    const daysHeld = Math.max(1, Math.ceil((closedDate.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)))
     
     return ((netPremium / capitalRequired) * (365 / daysHeld) * 100).toFixed(2)
   }
 
-  function formatCurrency(amount) {
+  function formatCurrency(amount: number) {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD'
     }).format(amount)
   }
 
-  function formatDate(dateString) {
+  function formatDate(dateString: string) {
     return new Date(dateString).toLocaleDateString()
   }
 
@@ -409,7 +426,7 @@ export default function OptionsTracker() {
                 {(() => {
                   const closedTrades = trades.filter(t => t.status === 'CLOSED' && (t.apr || calculateAPR(t)))
                   if (closedTrades.length === 0) return 'N/A'
-                  const avgAPR = closedTrades.reduce((sum, t) => sum + (t.apr || parseFloat(calculateAPR(t))), 0) / closedTrades.length
+                  const avgAPR = closedTrades.reduce((sum, t) => sum + (t.apr || parseFloat(calculateAPR(t) || '0')), 0) / closedTrades.length
                   return avgAPR.toFixed(1) + '%'
                 })()}
               </p>
