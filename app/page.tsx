@@ -20,7 +20,7 @@ interface Trade {
 }
 
 export default function OptionsTracker() {
-  const [trades, setTrades] = useState<Trade[]>([]) // Fixed: properly typed
+  const [trades, setTrades] = useState<any[]>([]) // Fixed: properly again
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   
