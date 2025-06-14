@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 interface OptionsTrade {
   id: number;
@@ -15,7 +16,7 @@ interface OptionsTrade {
   status: string;
   fees: number;
   date_closed: string | null;
-  apr: number;
+  apr: number | null;
 }
 
 export default function OptionsTradesPage() {
@@ -24,23 +25,29 @@ export default function OptionsTradesPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchTrades = async () => {
-      try {
-        const response = await fetch('/api/options-trades');
-        if (!response.ok) {
-          throw new Error('Failed to fetch trades');
-        }
-        const data = await response.json();
-        setTrades(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchTrades();
   }, []);
+
+  async function fetchTrades() {
+    try {
+      const { data, error } = await supabase
+        .from('options_trades')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching trades:', error);
+        setError('Failed to fetch trades');
+      } else {
+        setTrades(data || []);
+      }
+    } catch (err) {
+      console.error('Unexpected error fetching trades:', err);
+      setError('An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -53,7 +60,8 @@ export default function OptionsTradesPage() {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const formatPercentage = (value: number) => {
+  const formatPercentage = (value: number | null) => {
+    if (value === null) return 'N/A';
     return `${value.toFixed(2)}%`;
   };
 
@@ -100,7 +108,11 @@ export default function OptionsTradesPage() {
                   {trade.symbol}
                 </td>
                 <td className="px-4 py-2 text-sm text-gray-600">
-                  {trade.option_type}
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    trade.option_type === 'PUT' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                  }`}>
+                    {trade.option_type}
+                  </span>
                 </td>
                 <td className="px-4 py-2 text-sm text-gray-600">
                   {formatCurrency(trade.strike_price)}
@@ -116,26 +128,26 @@ export default function OptionsTradesPage() {
                 </td>
                 <td className="px-4 py-2 text-sm">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    trade.action === 'BUY' 
-                      ? 'bg-red-100 text-red-800' 
-                      : 'bg-green-100 text-green-800'
+                    trade.action === 'SELL' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'
                   }`}>
                     {trade.action}
                   </span>
                 </td>
                 <td className="px-4 py-2 text-sm">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    trade.status === 'OPEN' 
-                      ? 'bg-blue-100 text-blue-800' 
-                      : trade.status === 'CLOSED'
-                      ? 'bg-gray-100 text-gray-800'
-                      : 'bg-yellow-100 text-yellow-800'
+                    trade.status === 'OPEN' ? 'bg-yellow-100 text-yellow-800' :
+                    trade.status === 'CLOSED' ? 'bg-green-100 text-green-800' :
+                    'bg-gray-100 text-gray-800'
                   }`}>
                     {trade.status}
                   </span>
                 </td>
-                <td className="px-4 py-2 text-sm text-gray-600">
-                  {formatPercentage(trade.apr)}
+                <td className="px-4 py-2 text-sm">
+                  <span className={`font-medium ${
+                    trade.apr !== null ? 'text-green-600' : 'text-gray-400'
+                  }`}>
+                    {formatPercentage(trade.apr)}
+                  </span>
                 </td>
                 <td className="px-4 py-2 text-sm text-gray-600">
                   {formatDate(trade.created_at)}
